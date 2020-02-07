@@ -1,0 +1,155 @@
+---
+title: "Nearest Neighbor Search"
+author: "David Oliver"
+date: "2/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(babynames)
+library(plotly)
+library(magrittr)
+
+```
+
+# Framing the Question
+
+Given a set $S$ of points in a space $M$ and a query point $q \in M$, find the closest point 
+in $S$ to $q$. Most commonly, $M$ is taken to be the d-dimensional vector space where 
+dissimilarity is measured using some distance metric.
+
+## Basic Scenario
+
+Let's start by defining a set of points, $S$, in a 2-dimensional space, $M$. 
+
+```{r, Initial Data}
+
+S <- babynames$name %>% unique() %>% sample(100, replace = F) %>% 
+     data.frame(Names = ., X = rnorm(100), Y = rnorm(100))
+
+plot_ly(S, x = ~X, y = ~Y, 
+        type = "scatter", mode = "markers", 
+        name = "babies", hoverinfo = "text", text = ~Names)
+
+```
+
+Now define a new point, $q$, also in 2-dimensions.  
+
+```{r}
+
+q <- data.frame(Names = "q", X = rnorm(1), Y = rnorm(1)) 
+
+rbind.data.frame(S, q) %>% add_column(., source = c(rep(TRUE, 100), FALSE)) %>% 
+    plot_ly(x = ~X, y = ~Y, type = "scatter", mode = "markers", name = "babies",
+        hoverinfo = "text", text = ~Names, 
+        color = ~source, colors = c("#d73027", "#1a9850"))
+
+```
+
+That's it, we're all set up. Now we want to find the nearest neighbor to the point $q$. 
+
+Determining the nearest neighbor means that we need to find some distance, or more generally 
+a dissimilarity, metric on which to judge nearness.
+
+The choice of metrics is dependant on your problem and there is no clear method for making
+the decision other than rationale relating to the specifics of the data and the question.
+
+In the mean time, if you are desparate for a place to start and all the options have given
+you analysis paralysis, try [GUSTA ME](https://sites.google.com/site/mb3gustame/wizards/-dis-similarity-wizard)'s 
+(Dis)similarity wizard as a useful guide for where to start.
+
+<!-- A good guideline to follow regarding the choice of distance/dissimilarity metrics would be -->
+<!-- that if the results of the analysis change dramatically with a change in dissimilarity metric,  -->
+<!-- identifying the reason for the variability would benefit the analysis more than choosing the -->
+<!-- "correct" metric. -->
+
+That being said, for this example, there really isn't any reason to get fancy with the 
+metric yet, so we will stick with euclidean distance. The Euclidean distance in 2D space 
+between any two points $p$ and $q$ is $d=\sqrt{(x_{p}-x_{q})^2+(y_{p}-y_{q})^2}$
+
+```{r}
+
+# if p and q are two n dimensionsal points, then the euclidean distance is
+euclidist <- function(p, q){
+    stopifnot(length(p) == length(q))
+    sqrt(sum((p - q)^2))
+}
+
+S$euclid_dist <- apply(S[,2:3], 1, euclidist, q = q[,2:3])
+
+S[which.min(S$euclid_dist),]
+
+plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers", name = "babies",
+        hoverinfo = "text", text = ~Names) %>% 
+    add_segments(., x = ~X, xend = q$X, y = ~Y, yend = q$Y,
+                 line = list(color="#000000", width=0.5, dash="solid"))
+
+```
+
+The nearest neighbor to q in space M from set S is `r min(S$euclid_dist)` units away and is 
+named `r S$Names[which.min(S$euclid_dist)]`.
+
+# Extension of Nearest Neighbors Search
+
+An interesting property of nearest neighbors (really it is a property of distance metrics) 
+is that a given point $p$ may have nearest neighbor $q$, but $p$ is not necessarily $q$'s 
+nearest neighbor. 
+
+At the moment I'm not sure what the usefulness of this property is, but let's try to find
+the nearest neighbor for each point in our dataset (we'll omit our initial "q" point). 
+In order to gain some computational efficiency we'll just use `dist` from the `stats` package.
+
+```{r, fig.height=7}
+
+# calculate the distance between each pair of points
+distMat <- 
+    dist(S[, c("X", "Y")], method = "euclidean", upper = T) %>% 
+    as.matrix %>% { diag(.) <- NA }
+
+# the nearest neighbor of each point is the minimum value in each row or column of the 
+# square distance matrix (with diag = NA)
+minDist <- apply(distMat, 1, which.min)
+
+# collecting the target and destination nodes
+S$NNFrom <- as.numeric(names(minDist))
+S$NNTo <- minDist
+
+# get X-Y values for both origin (X0,Y0) and target (X1,Y1) nodes.
+SNet <- data.frame(Name0 = S$Names, X0 = S$X, Y0 = S$Y, X1 = S$X[S$NNTo], Y1 = S$Y[S$NNTo])
+
+plot_ly(SNet, x = ~X0, y = ~Y0, type = "scatter", mode = "markers",
+        marker = list(size = 10, color = "black"), hoverinfo = "text",
+        text = ~Name0) %>% 
+    layout(xaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F), 
+           yaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F)) %>% 
+    add_annotations(x = ~X1, ax = ~X0,
+                    y = ~Y1, ay = ~Y0, 
+                    xref = "x", yref = "y",
+                    axref = "x", ayref = "y",
+                    text = "", arrowhead = 2,
+                    showarrow = T)
+
+```
+
+From this directed graph, we can see that nearest neighbors are not always recipricol.
+
+
+
+
+The simplest extension of the nearest neighbor search is the K-NN variation. That is,
+given the distance (dissimilarity) from a point to it's neighbors find the K closest 
+neighbors. 
+
+For my purposes I want to explore k-NN and s-NN variants of the nearest neighbor search.
+
+
+
+
+
+
+
+It seems that maybe this is important for nearest-neighbor chain algorithms. In addition,
+this concept might be important for S-NN and M-NN approaches. 

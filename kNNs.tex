@@ -1,0 +1,89 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={kNNs},
+  pdfauthor={David Oliver},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+
+\title{kNNs}
+\author{David Oliver}
+\date{2/4/2020}
+
+\begin{document}
+\maketitle
+
+\hypertarget{working-through-knn-maths}{%
+\section{Working Through kNN Maths}\label{working-through-knn-maths}}
+
+Suppose we have pairs
+\{\displaystyle (X\_\{1\},Y\_\{1\}),(X\_\{2\},Y\_\{2\}),\dots ,(X\_\{n\},Y\_\{n\})\}\{\displaystyle (X\_\{1\},Y\_\{1\}),(X\_\{2\},Y\_\{2\}),\dots ,(X\_\{n\},Y\_\{n\})\}
+taking values in \{\displaystyle \mathbb {R}
+\textsuperscript{\{d\}\times \{1,2\}\}\{\mathbb  {R}\}}\{d\}\times \{1,2\},
+where Y is the class label of X, so that
+\{\displaystyle X\textbar Y=r\sim P\_\{r\}\}X\textbar Y=r\sim P\_\{r\}
+for \{\displaystyle r=1,2\}r=1,2 (and probability distributions
+\{\displaystyle P\_\{r\}\}P\_\{r\}). Given some norm
+\{\displaystyle \textbar{}\cdot \textbar\}\textbar{}\cdot \textbar{} on
+\{\displaystyle \mathbb {R} \^{}\{d\}\}\mathbb {R} \^{}\{d\} and a point
+\{\displaystyle x\in \mathbb {R}
+\textsuperscript{\{d\}\}x\in {\mathbb  {R}}}\{d\}, let
+\{\displaystyle (X\_\{(1)\},Y\_\{(1)\}),\dots ,(X\_\{(n)\},Y\_\{(n)\})\}(X\_\{\{(1)\}\},Y\_\{\{(1)\}\}),\dots ,(X\_\{\{(n)\}\},Y\_\{\{(n)\}\})
+be a reordering of the training data such that
+\{\displaystyle \textbar X\_\{(1)\}-x\textbar{}\leq \dots \leq \textbar X\_\{(n)\}-x\textbar\}\textbar X\_\{\{(1)\}\}-x\textbar{}\leq \dots \leq \textbar X\_\{\{(n)\}\}-x\textbar{}
+
+\end{document}
