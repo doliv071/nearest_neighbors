@@ -12,14 +12,16 @@ library(tidyverse)
 library(babynames)
 library(plotly)
 library(magrittr)
+library(conflicted)
+conflict_prefer("layout", "plotly")
 
 ```
 
-# Framing the Question
+# Nearest Neighbor Search -- Framing the Question
 
-Given a set $S$ of points in a space $M$ and a query point $q \in M$, find the closest point 
-in $S$ to $q$. Most commonly, $M$ is taken to be the d-dimensional vector space where 
-dissimilarity is measured using some distance metric.
+Given a set $S$ of points in a space $M$ and a query point $q \in M$, find the closest
+point in $S$ to $q$. Most commonly, $M$ is taken to be the d-dimensional vector space
+where dissimilarity is measured using some distance metric.
 
 ## Basic Scenario
 
@@ -42,29 +44,27 @@ Now define a new point, $q$, also in 2-dimensions.
 
 q <- data.frame(Names = "q", X = rnorm(1), Y = rnorm(1)) 
 
-rbind.data.frame(S, q) %>% add_column(., source = c(rep(TRUE, 100), FALSE)) %>% 
-    plot_ly(x = ~X, y = ~Y, type = "scatter", mode = "markers", name = "babies",
+S <- rbind.data.frame(S, q) %>% add_column(., source = c(rep("TRAIN", 100), "NEW"))
+
+plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers",
         hoverinfo = "text", text = ~Names, 
-        color = ~source, colors = c("#d73027", "#1a9850"))
+        color = ~source, colors = c("#d73027", "#1a9850")) %>% 
+    layout(showlegend = FALSE)
 
 ```
 
 That's it, we're all set up. Now we want to find the nearest neighbor to the point $q$. 
 
-Determining the nearest neighbor means that we need to find some distance, or more generally 
-a dissimilarity, metric on which to judge nearness.
+Determining the nearest neighbor means that we need to find some distance, or more
+generally a dissimilarity, metric on which to judge nearness.
 
 The choice of metrics is dependant on your problem and there is no clear method for making
 the decision other than rationale relating to the specifics of the data and the question.
 
 In the mean time, if you are desparate for a place to start and all the options have given
-you analysis paralysis, try [GUSTA ME](https://sites.google.com/site/mb3gustame/wizards/-dis-similarity-wizard)'s 
+you analysis paralysis, try 
+[GUSTA ME](https://sites.google.com/site/mb3gustame/wizards/-dis-similarity-wizard)'s 
 (Dis)similarity wizard as a useful guide for where to start.
-
-<!-- A good guideline to follow regarding the choice of distance/dissimilarity metrics would be -->
-<!-- that if the results of the analysis change dramatically with a change in dissimilarity metric,  -->
-<!-- identifying the reason for the variability would benefit the analysis more than choosing the -->
-<!-- "correct" metric. -->
 
 That being said, for this example, there really isn't any reason to get fancy with the 
 metric yet, so we will stick with euclidean distance. The Euclidean distance in 2D space 
@@ -79,35 +79,39 @@ euclidist <- function(p, q){
 }
 
 S$euclid_dist <- apply(S[,2:3], 1, euclidist, q = q[,2:3])
+S$euclid_dist[S$euclid_dist == 0] <- NA
 
 S[which.min(S$euclid_dist),]
 
-plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers", name = "babies",
-        hoverinfo = "text", text = ~Names) %>% 
+plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers",
+        hoverinfo = "text", text = ~Names,
+        color = ~source, colors = c("#d73027", "#1a9850")) %>% 
     add_segments(., x = ~X, xend = q$X, y = ~Y, yend = q$Y,
-                 line = list(color="#000000", width=0.5, dash="solid"))
+                 line = list(color="#000000", width=0.5, dash="solid")) %>% 
+    layout(showlegend = FALSE)
 
 ```
 
-The nearest neighbor to q in space M from set S is `r min(S$euclid_dist)` units away and is 
-named `r S$Names[which.min(S$euclid_dist)]`.
+The nearest neighbor to $q \in M$ from set $S$ is `r min(S$euclid_dist)` units away and
+is named `r S$Names[which.min(S$euclid_dist)]`.
 
-# Extension of Nearest Neighbors Search
+# Nearest Neighbors Search -- All Pairwise Neighbors
 
-An interesting property of nearest neighbors (really it is a property of distance metrics) 
-is that a given point $p$ may have nearest neighbor $q$, but $p$ is not necessarily $q$'s 
-nearest neighbor. 
+An interesting property of nearest neighbors (really it is a property of distance 
+metrics) is that a given point $p$ may have nearest neighbor $q$, but $p$ is not 
+necessarily $q$'s nearest neighbor. 
 
-At the moment I'm not sure what the usefulness of this property is, but let's try to find
-the nearest neighbor for each point in our dataset (we'll omit our initial "q" point). 
-In order to gain some computational efficiency we'll just use `dist` from the `stats` package.
+At the moment I'm not sure what the usefulness of this property is at the moment, but
+let's try to find the nearest neighbor for each point in our dataset. In order to gain
+some computational efficiency we'll just use `dist` from the `stats` package.
 
 ```{r, fig.height=7}
 
 # calculate the distance between each pair of points
 distMat <- 
     dist(S[, c("X", "Y")], method = "euclidean", upper = T) %>% 
-    as.matrix %>% { diag(.) <- NA }
+    as.matrix
+diag(distMat) <- NA
 
 # the nearest neighbor of each point is the minimum value in each row or column of the 
 # square distance matrix (with diag = NA)
@@ -118,11 +122,12 @@ S$NNFrom <- as.numeric(names(minDist))
 S$NNTo <- minDist
 
 # get X-Y values for both origin (X0,Y0) and target (X1,Y1) nodes.
-SNet <- data.frame(Name0 = S$Names, X0 = S$X, Y0 = S$Y, X1 = S$X[S$NNTo], Y1 = S$Y[S$NNTo])
+SNet <- data.frame(Name0 = S$Names, X0 = S$X, Y0 = S$Y, X1 = S$X[S$NNTo], 
+                   Y1 = S$Y[S$NNTo], source = S$source)
 
 plot_ly(SNet, x = ~X0, y = ~Y0, type = "scatter", mode = "markers",
-        marker = list(size = 10, color = "black"), hoverinfo = "text",
-        text = ~Name0) %>% 
+        marker = list(size = 10), hoverinfo = "text",
+        text = ~Name0, color = ~source, colors = c("#d73027", "#1a9850")) %>% 
     layout(xaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F), 
            yaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F)) %>% 
     add_annotations(x = ~X1, ax = ~X0,
@@ -136,15 +141,102 @@ plot_ly(SNet, x = ~X0, y = ~Y0, type = "scatter", mode = "markers",
 
 From this directed graph, we can see that nearest neighbors are not always recipricol.
 
+# Nearest Neighbor Search -- K Nearest Neighbors (k-NNs)
+
+K-NN search extends nearest neighbors to the $k$ nearest, so instead of looking
+for a single nearest neighbor we are looking for the $k$ nearest neighbors.
+
+K-NN can help answer different questions about the data depending on what we are 
+interested in. Below are a couple of questions that k-NNs can answer.
+
+1. Often the idea is to perform classification of a new set of observations based on
+a training set of observations with known classifications. In this case, we set
+$k$ equal to some number of neighbors and the classification among those neighbors
+which appears most often is the classification for the new data point. 
+
+2. Alternatively, we can ask a question about the density of points around a data point.
+Using the distance to $k$th nearest neighbors, we can estimate the local density
+of data around a given point.
+
+3. Other questions k-NN can answer...
 
 
+Let's answer the first two questions in order. First we'll look at the classification
+problem.
 
-The simplest extension of the nearest neighbor search is the K-NN variation. That is,
-given the distance (dissimilarity) from a point to it's neighbors find the K closest 
-neighbors. 
+```{r}
 
-For my purposes I want to explore k-NN and s-NN variants of the nearest neighbor search.
+# assign 2 different classes
+S$Class <- 
+    sample(c("Male", "Female"), nrow(S)-1, replace = T) %>% 
+    c(., "Unknown") %>% factor
 
+plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers", color = ~Class,
+        colors = c("#fb9a99", "#a6cee3", "#33a02c"))
+
+# First neighbor is k-NN where k = 1, we have already calculated the distances
+# to q from each point. We sort the data by that distance and then the top k
+# observations are the nearest neighbors
+S %<>% arrange(euclid_dist)
+
+```
+
+
+Since we will probably be doing a significant about of looping in the future,
+I'll include an aside here for how to convert a for loop to an lapply with 0 pain.
+
+
+```{r}
+
+# as an aside, we could do this iteratively in a for-loop, but it is almost always
+# bad practice to do so. Here, we'll just take a quick look at how to convert a 
+# for-loop to an lapply painlessly.
+
+# as a for-loop
+forDF <- data.frame()
+for(k in 1:10){
+    forDF <- rbind(forDF, S[k,])
+}
+
+# as an lapply
+lappDF <- lapply(1:10, function(k){
+    S[k,]
+}) %>% bind_rows(.)
+
+identical(lappDF, forDF)
+
+```
+
+
+Back to the question at hand. Choosing $k$, we can assign our new data point to 
+the class which is most highly represented among the $k$ nearest neighbors 
+i.e. the mode. 
+
+For our example, we're not going to choose a single value for $k$, instead we'll 
+choose 1 to 10 (10% of the data). 
+
+
+```{r}
+
+findKNNSingle <- function(dists, classes){
+    
+}
+
+lapply(1:10, function(k){
+    k_class1 <- S$Class[1:k] %>% droplevels() %>% table() %>% .[1]
+    k_class2 <- S$Class[1:k] %>% droplevels() %>% table() %>% .[2]
+    k_prop <- k_class1/k_class2
+    if(k_prop > 0.5){
+        k_pred <- names(k_class1)
+    } else if(k_prop < 0.5){
+        k_pred <- names(k_class2)
+    } else { k_pred <- "Tie" }
+
+    data.frame(k.Neighbors = k, Predicted.Class = k_pred, 
+               Predicted.Proportion = k_pred_prop)
+}) %>% bind_rows()
+
+```
 
 
 
@@ -153,3 +245,10 @@ For my purposes I want to explore k-NN and s-NN variants of the nearest neighbor
 
 It seems that maybe this is important for nearest-neighbor chain algorithms. In addition,
 this concept might be important for S-NN and M-NN approaches. 
+
+
+
+
+
+
+
