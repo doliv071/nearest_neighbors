@@ -13,6 +13,8 @@ library(babynames)
 library(plotly)
 library(magrittr)
 library(conflicted)
+library(kableExtra)
+#library(class)
 conflict_prefer("layout", "plotly")
 
 ```
@@ -34,7 +36,9 @@ S <- babynames$name %>% unique() %>% sample(100, replace = F) %>%
 
 plot_ly(S, x = ~X, y = ~Y, 
         type = "scatter", mode = "markers", 
-        name = "babies", hoverinfo = "text", text = ~Names)
+        name = "babies", hoverinfo = "text", text = ~Names,
+        color = 1, colors = c("#1a9850")) %>% 
+    hide_colorbar()
 
 ```
 
@@ -44,7 +48,7 @@ Now define a new point, $q$, also in 2-dimensions.
 
 q <- data.frame(Names = "q", X = rnorm(1), Y = rnorm(1)) 
 
-S <- rbind.data.frame(S, q) %>% add_column(., source = c(rep("TRAIN", 100), "NEW"))
+S <- rbind.data.frame(S, q) %>% add_column(., source = c(rep("OLD", 100), "NEW"))
 
 plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers",
         hoverinfo = "text", text = ~Names, 
@@ -92,12 +96,12 @@ plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers",
 
 ```
 
-The nearest neighbor to $q \in M$ from set $S$ is `r min(S$euclid_dist)` units away and
+The nearest neighbor to $q \in M$ from set $S$ is `r min(S$euclid_dist, na.rm = T)` units away and
 is named `r S$Names[which.min(S$euclid_dist)]`.
 
-# Nearest Neighbors Search -- All Pairwise Neighbors
+# Nearest-Neighbors Search -- All Pairwise Neighbors
 
-An interesting property of nearest neighbors (really it is a property of distance 
+An interesting property of nearest-neighbors (really it is a property of distance 
 metrics) is that a given point $p$ may have nearest neighbor $q$, but $p$ is not 
 necessarily $q$'s nearest neighbor. 
 
@@ -105,7 +109,7 @@ At the moment I'm not sure what the usefulness of this property is at the moment
 let's try to find the nearest neighbor for each point in our dataset. In order to gain
 some computational efficiency we'll just use `dist` from the `stats` package.
 
-```{r, fig.height=7}
+```{r, fig.height=7, fig.show="animate", interval=0.05}
 
 # calculate the distance between each pair of points
 distMat <- 
@@ -126,25 +130,26 @@ SNet <- data.frame(Name0 = S$Names, X0 = S$X, Y0 = S$Y, X1 = S$X[S$NNTo],
                    Y1 = S$Y[S$NNTo], source = S$source)
 
 plot_ly(SNet, x = ~X0, y = ~Y0, type = "scatter", mode = "markers",
-        marker = list(size = 10), hoverinfo = "text",
+        marker = list(size = 10), hoverinfo = "text", 
         text = ~Name0, color = ~source, colors = c("#d73027", "#1a9850")) %>% 
-    layout(xaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F), 
-           yaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F)) %>% 
-    add_annotations(x = ~X1, ax = ~X0,
+    add_annotations(., x = ~X1, ax = ~X0,
                     y = ~Y1, ay = ~Y0, 
                     xref = "x", yref = "y",
                     axref = "x", ayref = "y",
                     text = "", arrowhead = 2,
-                    showarrow = T)
+                    showarrow = T) %>% 
+    layout(xaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F), 
+           yaxis = list(title="", zeroline = F, showticklabels = F, showgrid = F)) 
+
 
 ```
 
-From this directed graph, we can see that nearest neighbors are not always recipricol.
+From this directed graph, we can see that nearest-neighbors are not always recipricol.
 
-# Nearest Neighbor Search -- K Nearest Neighbors (k-NNs)
+# Nearest Neighbor Search -- K Nearest-Neighbors (K-NNs)
 
-K-NN search extends nearest neighbors to the $k$ nearest, so instead of looking
-for a single nearest neighbor we are looking for the $k$ nearest neighbors.
+K-NN search extends nearest-neighbors to the $k$ nearest, so instead of looking
+for a single nearest neighbor we are looking for the $k$ nearest-neighbors.
 
 K-NN can help answer different questions about the data depending on what we are 
 interested in. Below are a couple of questions that k-NNs can answer.
@@ -155,7 +160,7 @@ $k$ equal to some number of neighbors and the classification among those neighbo
 which appears most often is the classification for the new data point. 
 
 2. Alternatively, we can ask a question about the density of points around a data point.
-Using the distance to $k$th nearest neighbors, we can estimate the local density
+Using the distance to $k$th nearest-neighbors, we can estimate the local density
 of data around a given point.
 
 3. Other questions k-NN can answer...
@@ -172,52 +177,31 @@ S$Class <-
     c(., "Unknown") %>% factor
 
 plot_ly(S, x = ~X, y = ~Y, type = "scatter", mode = "markers", color = ~Class,
-        colors = c("#fb9a99", "#a6cee3", "#33a02c"))
+        colors = c("#fb9a99", "#a6cee3", "#33a02c"), hoverinfo = "text",
+        text = ~Names, marker = list(size = 8))
 
 # First neighbor is k-NN where k = 1, we have already calculated the distances
 # to q from each point. We sort the data by that distance and then the top k
-# observations are the nearest neighbors
+# observations are the nearest-neighbors
 S %<>% arrange(euclid_dist)
 
-```
-
-
-Since we will probably be doing a significant about of looping in the future,
-I'll include an aside here for how to convert a for loop to an lapply with 0 pain.
-
-
-```{r}
-
-# as an aside, we could do this iteratively in a for-loop, but it is almost always
-# bad practice to do so. Here, we'll just take a quick look at how to convert a 
-# for-loop to an lapply painlessly.
-
-# as a for-loop
-forDF <- data.frame()
-for(k in 1:10){
-    forDF <- rbind(forDF, S[k,])
-}
-
-# as an lapply
-lappDF <- lapply(1:10, function(k){
-    S[k,]
-}) %>% bind_rows(.)
-
-identical(lappDF, forDF)
+# the first 3 nearest-neighbors to q
+S[1:3,]
 
 ```
 
 
-Back to the question at hand. Choosing $k$, we can assign our new data point to 
-the class which is most highly represented among the $k$ nearest neighbors 
-i.e. the mode. 
-
-For our example, we're not going to choose a single value for $k$, instead we'll 
-choose 1 to 10 (10% of the data). 
+So that is how we decide nearest-neighbors. We do need to do some math to determine which
+class is most represented (classification) or the "average" class (regression). Choosing 
+$k$, we can assign our new data point to the class which is most highly represented among 
+the $k$ nearest-neighbors i.e. the mode. Unfortunately, R stats and base do not have a 
+built in mode function. So we'll write one here which is a functionalization of 
+[this solution]([https://stackoverflow.com/a/8189441/1701678).
 
 
 ```{r}
 
+# since mode is already a function in R (not the mathematical mode), we'll use .mode 
 .mode <- function(x, len = c("one", "all")) {
     l <- match.arg(len)
     ux <- unique(x)
@@ -232,57 +216,92 @@ choose 1 to 10 (10% of the data).
     return(res)
 }
 
-# find k nearest neighbors and the class associated with the point of interest
-# this is a tidy-ish function meaning it takes a data.frame with user specified
-# columns for distance calculations and classes
+```
 
+
+Now we'll write a non-optimal k nearest-neighbors finding algorithm. Since we'd like to be
+able to maybe do this on the fly at some later stage, we'll writ it as a tidy-ish function 
+meaning it takes a data.frame with user specified columns for distance calculations and 
+classes.
+
+
+```{r}
+
+# in the simplest case we want to find the classification for a single point
+# for which distances have already been calculated for our dataset. 
 findKNNSingle <- function(data, dists, classes, k,
                           method = c("classification", "regression")){
-    if(!is.data.frame(data)) {
+    dists <- enexpr(dists)
+    classes <- enexpr(classes)
+    # check for proper inputs
+    if(!is.data.frame(data))
         stop("data must be a data.frame")
-    }
-    if(!is.numeric(data[,dists])){
+    if(!is.numeric(pull(data, dists)))
         stop("distances must be numeric")
-    }
-    if(!is.factor(data[,classes])){
+    if(!is.factor(pull(data, classes)))
         stop("classes must be factors")
-    }
-    if(length(k) != 1){
+    if(length(k) != 1)
         stop("k must be of length 1")
-    }
-    
     method <- match.arg(method)
-    S <- data %>% arrange(., vars(dists)) %>% .[,classes] %>% .[1:k]
-    
+    # sort the data by shortest distance, and select the top k classes
+    # which are the classes of the closest k points.
+    S <- data %>% top_n(., k, -!!dists) %>% pull(., !!classes)
+    # if we want straight classification use .mode, otherwise use the average
     if(method == "classification"){
         res <- .mode(S, len = "all")
     } else if(method == "regression"){
         classTab <- table(S, useNA = "no")
         classMeans <- classTab/sum(classTab)
-        res <- names(res[res == max(res)])
+        res <- names(classMeans[classMeans == max(classMeans)])
     } else {
         stop("Failed to select appropriate method.")
     }
-    # should add a better way to break ties...
+    # break ties at random
     if(length(res) != 1){
         res <- sample(res, size = 1)
     }
     return(res)
 }
 
-
-findKNNSingle(data = S, dists = "euclid_dist", classes = "Class", k = 7, method = "class")
-
 ```
 
 
+Now that we've built a basic KNN classification algorithm, we can check the assignment of
+our new datapoint $q$. 
+
+
+```{r}
+
+findKNNSingle(data = S, dists = euclid_dist, classes = Class, 
+              k = 9, method = "classification") %>% 
+    as.character()
+
+# let's try multiple values for k
+class_of_q <- lapply(3:11, function(i){
+    findKNNSingle(data = S, dists = euclid_dist, classes = Class, 
+                  k = i, method = "classification") %>% 
+    as.character()
+}) %>% do.call(rbind, .) %>% data.frame(k_value = 3:11, class_new = .)
+
+kable(class_of_q) %>% kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+By checking the class assignment of $q$ using several different values for k, the majority 
+of K-NN searches classified $q$ as `r table(class_of_q) %>% which.max() %>% names()`.  
 
 
 
+# Nearest Neighbor Search -- Shared Nearest-Neighbors (S-NNs)
+
+# Nearest Neighbor Search -- Mutual Nearest-Neighbors (M-NNs)
+
+# Nearest Neighbor Search -- Nearest-neighbor chain algorithm
 
 It seems that maybe this is important for nearest-neighbor chain algorithms. In addition,
 this concept might be important for S-NN and M-NN approaches. 
 
+# Nearest Neighbor Search -- Farthest Neighbors Search (FNs)
 
 
 

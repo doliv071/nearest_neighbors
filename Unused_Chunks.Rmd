@@ -1,0 +1,35 @@
+---
+title: "Unused_Chunks"
+author: "David Oliver"
+date: "2/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Since we will probably be doing a significant about of looping in the future,
+I'll include an aside here for how to convert a for loop to an lapply with 0 pain.
+
+
+```{r}
+
+# as an aside, we could do this iteratively in a for-loop, but it is almost always
+# bad practice to do so. Here, we'll just take a quick look at how to convert a 
+# for-loop to an lapply painlessly.
+
+# as a for-loop
+forDF <- data.frame()
+for(k in 1:10){
+    forDF <- rbind(forDF, S[k,])
+}
+
+# as an lapply
+lappDF <- lapply(1:10, function(k){
+    S[k,]
+}) %>% bind_rows(.)
+
+identical(lappDF, forDF)
+
+```
