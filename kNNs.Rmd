@@ -218,23 +218,60 @@ choose 1 to 10 (10% of the data).
 
 ```{r}
 
-findKNNSingle <- function(dists, classes){
-    
+.mode <- function(x, len = c("one", "all")) {
+    l <- match.arg(len)
+    ux <- unique(x)
+    if(l == "one"){
+        res <- ux[which.max(tabulate(match(x, ux)))]
+    } else if(l == "all"){
+        tab <- tabulate(match(x, ux))
+        res <- ux[tab == max(tab)]
+    } else {
+        stop("Failed to select approriate argument for parameter len.")
+    }
+    return(res)
 }
 
-lapply(1:10, function(k){
-    k_class1 <- S$Class[1:k] %>% droplevels() %>% table() %>% .[1]
-    k_class2 <- S$Class[1:k] %>% droplevels() %>% table() %>% .[2]
-    k_prop <- k_class1/k_class2
-    if(k_prop > 0.5){
-        k_pred <- names(k_class1)
-    } else if(k_prop < 0.5){
-        k_pred <- names(k_class2)
-    } else { k_pred <- "Tie" }
+# find k nearest neighbors and the class associated with the point of interest
+# this is a tidy-ish function meaning it takes a data.frame with user specified
+# columns for distance calculations and classes
 
-    data.frame(k.Neighbors = k, Predicted.Class = k_pred, 
-               Predicted.Proportion = k_pred_prop)
-}) %>% bind_rows()
+findKNNSingle <- function(data, dists, classes, k,
+                          method = c("classification", "regression")){
+    if(!is.data.frame(data)) {
+        stop("data must be a data.frame")
+    }
+    if(!is.numeric(data[,dists])){
+        stop("distances must be numeric")
+    }
+    if(!is.factor(data[,classes])){
+        stop("classes must be factors")
+    }
+    if(length(k) != 1){
+        stop("k must be of length 1")
+    }
+    
+    method <- match.arg(method)
+    S <- data %>% arrange(., vars(dists)) %>% .[,classes] %>% .[1:k]
+    
+    if(method == "classification"){
+        res <- .mode(S, len = "all")
+    } else if(method == "regression"){
+        classTab <- table(S, useNA = "no")
+        classMeans <- classTab/sum(classTab)
+        res <- names(res[res == max(res)])
+    } else {
+        stop("Failed to select appropriate method.")
+    }
+    # should add a better way to break ties...
+    if(length(res) != 1){
+        res <- sample(res, size = 1)
+    }
+    return(res)
+}
+
+
+findKNNSingle(data = S, dists = "euclid_dist", classes = "Class", k = 7, method = "class")
 
 ```
 
